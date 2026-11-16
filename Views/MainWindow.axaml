@@ -1,0 +1,63 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ImageZoneEditor.ViewModels"
+        xmlns:models="using:ImageZoneEditor.Models"
+        x:Class="ImageZoneEditor.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Редактор активных зон" Width="1000" Height="800">
+    
+    <Grid RowDefinitions="Auto,*">
+        <!-- Верхняя панель -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10">
+            <Button Content="Открыть" Click="OnOpenImageClick"/>
+            <TextBlock Text="Масштаб: " VerticalAlignment="Center" Margin="10,0,0,0"/>
+            <TextBlock Text="{Binding ZoomLevel, StringFormat={}{0:P0}}" VerticalAlignment="Center"/>
+            <Button Content="Экспорт зон" Command="{Binding ExportZonesCommand}" Margin="20,0,0,0"/>
+        </StackPanel>
+
+        <!-- Рабочая область -->
+        <ScrollViewer Grid.Row="1" x:Name="ImageScrollViewer" 
+                      HorizontalScrollBarVisibility="Auto" 
+                      VerticalScrollBarVisibility="Auto">
+            
+            <Grid x:Name="ImageContainer" 
+                  Width="{Binding ScaledImageWidth}" 
+                  Height="{Binding ScaledImageHeight}">
+                
+                <!-- Оригинальное изображение -->
+                <Image Source="{Binding CurrentImage}" 
+                       Stretch="Fill" 
+                       RenderOptions.BitmapInterpolationMode="HighQuality"/>
+
+                <!-- Слой для зон -->
+                <ItemsControl ItemsSource="{Binding Zones}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <Canvas/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    
+                        <ItemsControl.ItemContainerTheme>
+                            <ControlTheme TargetType="ContentPresenter" x:DataType="models:Zone">
+                            <Setter Property="Canvas.Left" Value="{Binding X}"/>
+                            <Setter Property="Canvas.Top" Value="{Binding Y}"/>
+                            </ControlTheme>
+                        </ItemsControl.ItemContainerTheme>
+                    
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="models:Zone">
+                            <!-- Визуализация самой зоны -->
+                            <Border Width="{Binding Width}" Height="{Binding Height}"
+                                    BorderBrush="Red" BorderThickness="2" Background="#33FF0000"
+                                    RenderTransformOrigin="0.5,0.5">
+                                <Border.RenderTransform>
+                                    <RotateTransform Angle="{Binding Angle}"/>
+                                </Border.RenderTransform>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</Window>
