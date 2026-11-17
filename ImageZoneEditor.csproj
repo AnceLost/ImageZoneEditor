@@ -21,6 +21,10 @@
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageReference Include="SixLabors.ImageSharp" Version="4.1.3" />
+    <!-- 3.1.12 не требует лицензии для Release-сборок (см. AGENTS.md). -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <!-- OpenCV для фильтров зон. Runtime-пакет содержит нативные библиотеки. -->
+    <PackageReference Include="OpenCvSharp4" Version="4.13.0.20261107" />
+    <PackageReference Include="OpenCvSharp4.official.runtime.linux-x64" Version="4.13.0.20261107" />
   </ItemGroup>
 </Project>

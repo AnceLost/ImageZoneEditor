@@ -2,62 +2,452 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:ImageZoneEditor.ViewModels"
         xmlns:models="using:ImageZoneEditor.Models"
+        xmlns:conv="using:ImageZoneEditor.Converters"
         x:Class="ImageZoneEditor.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="Редактор активных зон" Width="1000" Height="800">
-    
-    <Grid RowDefinitions="Auto,*">
+        Title="{Binding WindowTitle}"
+        RequestedThemeVariant="Light"
+        Width="1100" Height="820"
+        MinWidth="720" MinHeight="480"
+        KeyDown="OnWindowKeyDown">
+
+    <Window.Resources>
+        <conv:ZoneOffsetConverter x:Key="ZoneCanvasOffset" Offset="-24" />
+        <conv:ZoneOffsetConverter x:Key="ZoneExtraSize" Offset="48" />
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Button.toolbar">
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="MinWidth" Value="40" />
+        </Style>
+
+        <Style Selector="ListBox.zone-list ListBoxItem">
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="Margin" Value="0,0,0,2" />
+        </Style>
+
+        <Style Selector="Border.zone">
+            <Setter Property="BorderBrush" Value="#E53935" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="Background" Value="#2200A0FF" />
+        </Style>
+
+        <Style Selector="Border.zone.selected">
+            <Setter Property="BorderBrush" Value="#2979FF" />
+            <Setter Property="BorderThickness" Value="2.5" />
+            <Setter Property="Background" Value="#3300A0FF" />
+        </Style>
+
+        <Style Selector="TextBlock.filter-label">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="#555" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="TextBlock.filter-value">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="#333" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextAlignment" Value="Right" />
+        </Style>
+
+        <Style Selector="Slider.filter-slider">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="MinHeight" Value="24" />
+        </Style>
+
+        <Style Selector="Button.filter-reset">
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="MinWidth" Value="0" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto">
         <!-- Верхняя панель -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10">
-            <Button Content="Открыть" Click="OnOpenImageClick"/>
-            <TextBlock Text="Масштаб: " VerticalAlignment="Center" Margin="10,0,0,0"/>
-            <TextBlock Text="{Binding ZoomLevel, StringFormat={}{0:P0}}" VerticalAlignment="Center"/>
-            <Button Content="Экспорт зон" Command="{Binding ExportZonesCommand}" Margin="20,0,0,0"/>
-        </StackPanel>
+        <Border Grid.Row="0" Padding="10,8" Background="#F2F2F2"
+                BorderBrush="#D0D0D0" BorderThickness="0,0,0,1">
+            <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="Открыть" Classes="toolbar" Click="OnOpenImageClick" />
+                <Button Content="Сохранить JSON" Classes="toolbar"
+                        Command="{Binding SaveZonesCommand}" />
+                <Button Content="Загрузить JSON" Classes="toolbar"
+                        Click="OnLoadJsonClick" IsEnabled="{Binding HasImage}" />
+                <Rectangle Width="1" Height="24" Fill="#C8C8C8" Margin="4,0,10,0" />
+
+                <Button Content="+ Зона" Classes="toolbar"
+                        Command="{Binding AddZoneCommand}" />
+                <Button Content="Удалить" Classes="toolbar"
+                        Command="{Binding DeleteSelectedZoneCommand}" />
+                <Rectangle Width="1" Height="24" Fill="#C8C8C8" Margin="4,0,10,0" />
+
+                <Button Content="Экспорт зоны" Classes="toolbar"
+                        Click="OnExportSelectedClick" IsEnabled="{Binding HasImage}" />
+                <Button Content="Экспорт всех в папку…" Classes="toolbar"
+                        Click="OnExportAllClick" IsEnabled="{Binding HasImage}"
+                        ToolTip.Tip="Выберите папку — каждая зона сохранится отдельным PNG-файлом" />
+                <Button Content="В буфер" Classes="toolbar"
+                        Click="OnCopyToClipboardClick" IsEnabled="{Binding HasImage}" />
+                <Rectangle Width="1" Height="24" Fill="#C8C8C8" Margin="4,0,10,0" />
+
+                <Button Content="−" Classes="toolbar"
+                        Command="{Binding ZoomOutCommand}" />
+                <TextBlock Text="{Binding ZoomLevel, StringFormat={}{0:P0}}"
+                           VerticalAlignment="Center" MinWidth="52" TextAlignment="Center" />
+                <Button Content="+" Classes="toolbar"
+                        Command="{Binding ZoomInCommand}" />
+                <Button Content="Вписать" Classes="toolbar" Click="OnFitClick" />
+            </WrapPanel>
+        </Border>
 
         <!-- Рабочая область -->
-        <ScrollViewer Grid.Row="1" x:Name="ImageScrollViewer" 
-                      HorizontalScrollBarVisibility="Auto" 
-                      VerticalScrollBarVisibility="Auto">
-            
-            <Grid x:Name="ImageContainer" 
-                  Width="{Binding ScaledImageWidth}" 
-                  Height="{Binding ScaledImageHeight}">
-                
-                <!-- Оригинальное изображение -->
-                <Image Source="{Binding CurrentImage}" 
-                       Stretch="Fill" 
-                       RenderOptions.BitmapInterpolationMode="HighQuality"/>
+        <Grid Grid.Row="1" ColumnDefinitions="*,300" Background="#262626">
+            <Grid Grid.Column="0" Background="#262626">
+            <ScrollViewer x:Name="ImageScrollViewer"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto"
+                          Background="#262626">
+                <Grid x:Name="ImageContainer"
+                      Width="{Binding ScaledImageWidth}"
+                      Height="{Binding ScaledImageHeight}"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Top"
+                      Background="Transparent"
+                      ClipToBounds="True"
+                      PointerPressed="OnImagePointerPressed"
+                      PointerMoved="OnImagePointerMoved"
+                      PointerReleased="OnImagePointerReleased">
+                    <!-- Слой отрисовки в координатах оригинального изображения -->
+                    <Grid x:Name="ImageLayer"
+                          Width="{Binding OriginalWidth}"
+                          Height="{Binding OriginalHeight}"
+                          HorizontalAlignment="Left"
+                          VerticalAlignment="Top"
+                          RenderTransformOrigin="0,0">
+                        <Grid.RenderTransform>
+                            <ScaleTransform ScaleX="{Binding ZoomLevel}" ScaleY="{Binding ZoomLevel}" />
+                        </Grid.RenderTransform>
 
-                <!-- Слой для зон -->
-                <ItemsControl ItemsSource="{Binding Zones}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <Canvas/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    
-                        <ItemsControl.ItemContainerTheme>
-                            <ControlTheme TargetType="ContentPresenter" x:DataType="models:Zone">
-                            <Setter Property="Canvas.Left" Value="{Binding X}"/>
-                            <Setter Property="Canvas.Top" Value="{Binding Y}"/>
-                            </ControlTheme>
-                        </ItemsControl.ItemContainerTheme>
-                    
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="models:Zone">
-                            <!-- Визуализация самой зоны -->
-                            <Border Width="{Binding Width}" Height="{Binding Height}"
-                                    BorderBrush="Red" BorderThickness="2" Background="#33FF0000"
-                                    RenderTransformOrigin="0.5,0.5">
-                                <Border.RenderTransform>
-                                    <RotateTransform Angle="{Binding Angle}"/>
-                                </Border.RenderTransform>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                        <Image Source="{Binding CurrentImage}"
+                               Stretch="Fill"
+                               RenderOptions.BitmapInterpolationMode="HighQuality" />
+
+                        <ItemsControl ItemsSource="{Binding Zones}"
+                                      Width="{Binding OriginalWidth}"
+                                      Height="{Binding OriginalHeight}"
+                                      HorizontalAlignment="Left"
+                                      VerticalAlignment="Top">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <Canvas />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+
+                            <ItemsControl.ItemContainerTheme>
+                                <ControlTheme TargetType="ContentPresenter" x:DataType="models:Zone">
+                                    <Setter Property="Canvas.Left"
+                                            Value="{Binding X, Converter={StaticResource ZoneCanvasOffset}}" />
+                                    <Setter Property="Canvas.Top"
+                                            Value="{Binding Y, Converter={StaticResource ZoneCanvasOffset}}" />
+                                </ControlTheme>
+                            </ItemsControl.ItemContainerTheme>
+
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:Zone">
+                                    <!-- Корень больше зоны на 24px с каждой стороны:
+                                         в отступах помещаются маркеры, а поворот идёт вокруг центра зоны.
+                                         В Avalonia значения RenderTransformOrigin без «%» —
+                                         это абсолютные пиксели, поэтому нужны именно проценты. -->
+                                    <Grid Width="{Binding Width, Converter={StaticResource ZoneExtraSize}}"
+                                          Height="{Binding Height, Converter={StaticResource ZoneExtraSize}}"
+                                          RenderTransformOrigin="50%,50%">
+                                        <Grid.RenderTransform>
+                                            <RotateTransform Angle="{Binding Angle}" />
+                                        </Grid.RenderTransform>
+
+                                        <Border Name="MoveSurface"
+                                                Margin="24"
+                                                Classes="zone"
+                                                Classes.selected="{Binding IsSelected}"
+                                                Cursor="SizeAll" />
+
+                                        <!-- Неразрушающее превью зоны с фильтрами -->
+                                        <Image Margin="24"
+                                               Source="{Binding Preview}"
+                                               Stretch="Fill"
+                                               IsVisible="{Binding HasPreview}"
+                                               IsHitTestVisible="False"
+                                               RenderOptions.BitmapInterpolationMode="HighQuality" />
+
+                                        <!-- Рамка поверх превью -->
+                                        <Border Margin="24"
+                                                Classes="zone"
+                                                Classes.selected="{Binding IsSelected}"
+                                                Background="Transparent"
+                                                IsVisible="{Binding HasPreview}"
+                                                IsHitTestVisible="False" />
+
+                                        <Border Background="#CC000000"
+                                                CornerRadius="2"
+                                                Padding="5,1"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Top"
+                                                Margin="26"
+                                                IsHitTestVisible="False"
+                                                IsVisible="{Binding IsSelected}">
+                                            <TextBlock Text="{Binding Name}"
+                                                       Foreground="White"
+                                                       FontSize="11" />
+                                        </Border>
+
+                                        <!-- Маркеры изменения размера -->
+                                        <Ellipse Name="ResizeHandleNW" Width="12" Height="12"
+                                                 Fill="White" Stroke="#2979FF" StrokeThickness="1.5"
+                                                 HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                 Margin="18,18,0,0" Cursor="TopLeftCorner"
+                                                 IsVisible="{Binding IsSelected}" />
+                                        <Ellipse Name="ResizeHandleNE" Width="12" Height="12"
+                                                 Fill="White" Stroke="#2979FF" StrokeThickness="1.5"
+                                                 HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                 Margin="0,18,18,0" Cursor="TopRightCorner"
+                                                 IsVisible="{Binding IsSelected}" />
+                                        <Ellipse Name="ResizeHandleSW" Width="12" Height="12"
+                                                 Fill="White" Stroke="#2979FF" StrokeThickness="1.5"
+                                                 HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                                 Margin="18,0,0,18" Cursor="BottomLeftCorner"
+                                                 IsVisible="{Binding IsSelected}" />
+                                        <Ellipse Name="ResizeHandleSE" Width="12" Height="12"
+                                                 Fill="White" Stroke="#2979FF" StrokeThickness="1.5"
+                                                 HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                 Margin="0,0,18,18" Cursor="BottomRightCorner"
+                                                 IsVisible="{Binding IsSelected}" />
+
+                                        <!-- Маркер поворота -->
+                                        <Ellipse Name="RotateHandle" Width="14" Height="14"
+                                                 Fill="#2979FF" Stroke="White" StrokeThickness="1.5"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Top"
+                                                 Margin="0,2,0,0" Cursor="Hand"
+                                                 IsVisible="{Binding IsSelected}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Grid>
+            </ScrollViewer>
+
+            <TextBlock Text="Откройте изображение, чтобы начать работу"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       FontSize="18"
+                       Foreground="#9A9A9A"
+                       IsHitTestVisible="False"
+                       IsVisible="{Binding !HasImage}" />
             </Grid>
-        </ScrollViewer>
+
+            <!-- Список зон и фильтры -->
+            <Border Grid.Column="1" Background="#FAFAFA"
+                    BorderBrush="#D0D0D0" BorderThickness="1,0,0,0">
+                <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,1.2*">
+                    <Border Grid.Row="0" Padding="10,8" Background="#F2F2F2"
+                            BorderBrush="#D0D0D0" BorderThickness="0,0,0,1">
+                        <TextBlock Text="{Binding ZonesCount, StringFormat=Зоны: {0}}"
+                                   FontWeight="SemiBold" />
+                    </Border>
+
+                    <TextBlock Grid.Row="1" Text="Нет зон"
+                               Margin="12,10" FontSize="12" Foreground="#888"
+                               IsVisible="{Binding !HasZones}" />
+
+                    <ListBox Grid.Row="2"
+                             Classes="zone-list"
+                             ItemsSource="{Binding Zones}"
+                             SelectedItem="{Binding SelectedZone, Mode=TwoWay}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Padding="4">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:Zone">
+                                <StackPanel Spacing="3" Margin="2,3">
+                                    <TextBlock Text="{Binding Name}"
+                                               FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Id, StringFormat=Id: {0}}"
+                                               FontSize="10"
+                                               Foreground="#777"
+                                               TextTrimming="CharacterEllipsis" />
+
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <StackPanel Orientation="Horizontal" Spacing="3">
+                                            <TextBlock Text="X:" FontSize="11" Foreground="#666" />
+                                            <TextBlock Text="{Binding X, StringFormat={}{0:F0}}"
+                                                       FontSize="11" Foreground="#333" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="3">
+                                            <TextBlock Text="Y:" FontSize="11" Foreground="#666" />
+                                            <TextBlock Text="{Binding Y, StringFormat={}{0:F0}}"
+                                                       FontSize="11" Foreground="#333" />
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <StackPanel Orientation="Horizontal" Spacing="3">
+                                            <TextBlock Text="Ш:" FontSize="11" Foreground="#666" />
+                                            <TextBlock Text="{Binding Width, StringFormat={}{0:F0}}"
+                                                       FontSize="11" Foreground="#333" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="3">
+                                            <TextBlock Text="В:" FontSize="11" Foreground="#666" />
+                                            <TextBlock Text="{Binding Height, StringFormat={}{0:F0}}"
+                                                       FontSize="11" Foreground="#333" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="3">
+                                            <TextBlock Text="∠:" FontSize="11" Foreground="#666" />
+                                            <TextBlock Text="{Binding Angle, StringFormat={}{0:F1}°}"
+                                                       FontSize="11" Foreground="#333" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <GridSplitter Grid.Row="3" Height="4"
+                                  Background="#E4E4E4"
+                                  ResizeDirection="Rows" />
+
+                    <Border Grid.Row="4" Padding="10,8" Background="#F2F2F2"
+                            BorderBrush="#D0D0D0" BorderThickness="0,1,0,1">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Фильтры"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Content="Сбросить"
+                                    Classes="filter-reset"
+                                    Command="{Binding ResetSelectedZoneFiltersCommand}"
+                                    IsEnabled="{Binding HasSelectedZone}" />
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer Grid.Row="5"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto"
+                                  IsVisible="{Binding HasSelectedZone}">
+                        <StackPanel Margin="10,8,10,12" Spacing="8">
+                            <TextBlock Text="Изменения видны в предпросмотре на холсте и применяются к файлу только при экспорте."
+                                       FontSize="11" Foreground="#777" TextWrapping="Wrap" />
+                            <CheckBox Content="Включить фильтры"
+                                      IsChecked="{Binding SelectedZone.Filters.Enabled, Mode=TwoWay}" />
+
+                            <!-- Яркость -->
+                            <Grid ColumnDefinitions="100,*,44">
+                                <TextBlock Grid.Column="0" Text="Яркость" Classes="filter-label" />
+                                <Slider Grid.Column="1" Classes="filter-slider"
+                                        Minimum="-100" Maximum="100" TickFrequency="1"
+                                        Value="{Binding SelectedZone.Filters.Brightness, Mode=TwoWay}" />
+                                <TextBlock Grid.Column="2" Classes="filter-value"
+                                           Text="{Binding SelectedZone.Filters.Brightness, StringFormat={}{0:F0}}" />
+                            </Grid>
+
+                            <!-- Контраст -->
+                            <Grid ColumnDefinitions="100,*,44">
+                                <TextBlock Grid.Column="0" Text="Контраст" Classes="filter-label" />
+                                <Slider Grid.Column="1" Classes="filter-slider"
+                                        Minimum="-100" Maximum="100" TickFrequency="1"
+                                        Value="{Binding SelectedZone.Filters.Contrast, Mode=TwoWay}" />
+                                <TextBlock Grid.Column="2" Classes="filter-value"
+                                           Text="{Binding SelectedZone.Filters.Contrast, StringFormat={}{0:F0}}" />
+                            </Grid>
+
+                            <!-- Насыщенность -->
+                            <Grid ColumnDefinitions="100,*,44">
+                                <TextBlock Grid.Column="0" Text="Насыщенность" Classes="filter-label" />
+                                <Slider Grid.Column="1" Classes="filter-slider"
+                                        Minimum="-100" Maximum="100" TickFrequency="1"
+                                        Value="{Binding SelectedZone.Filters.Saturation, Mode=TwoWay}" />
+                                <TextBlock Grid.Column="2" Classes="filter-value"
+                                           Text="{Binding SelectedZone.Filters.Saturation, StringFormat={}{0:F0}}" />
+                            </Grid>
+
+                            <!-- Оттенок -->
+                            <Grid ColumnDefinitions="100,*,44">
+                                <TextBlock Grid.Column="0" Text="Оттенок" Classes="filter-label" />
+                                <Slider Grid.Column="1" Classes="filter-slider"
+                                        Minimum="-180" Maximum="180" TickFrequency="1"
+                                        Value="{Binding SelectedZone.Filters.Hue, Mode=TwoWay}" />
+                                <TextBlock Grid.Column="2" Classes="filter-value"
+                                           Text="{Binding SelectedZone.Filters.Hue, StringFormat={}{0:F0}°}" />
+                            </Grid>
+
+                            <!-- Гамма -->
+                            <Grid ColumnDefinitions="100,*,44">
+                                <TextBlock Grid.Column="0" Text="Гамма" Classes="filter-label" />
+                                <Slider Grid.Column="1" Classes="filter-slider"
+                                        Minimum="0.2" Maximum="3" TickFrequency="0.05"
+                                        Value="{Binding SelectedZone.Filters.Gamma, Mode=TwoWay}" />
+                                <TextBlock Grid.Column="2" Classes="filter-value"
+                                           Text="{Binding SelectedZone.Filters.Gamma, StringFormat={}{0:F2}}" />
+                            </Grid>
+
+                            <!-- Размытие -->
+                            <Grid ColumnDefinitions="100,*,44">
+                                <TextBlock Grid.Column="0" Text="Размытие" Classes="filter-label" />
+                                <Slider Grid.Column="1" Classes="filter-slider"
+                                        Minimum="0" Maximum="20" TickFrequency="0.5"
+                                        Value="{Binding SelectedZone.Filters.Blur, Mode=TwoWay}" />
+                                <TextBlock Grid.Column="2" Classes="filter-value"
+                                           Text="{Binding SelectedZone.Filters.Blur, StringFormat={}{0:F1}}" />
+                            </Grid>
+
+                            <!-- Резкость -->
+                            <Grid ColumnDefinitions="100,*,44">
+                                <TextBlock Grid.Column="0" Text="Резкость" Classes="filter-label" />
+                                <Slider Grid.Column="1" Classes="filter-slider"
+                                        Minimum="0" Maximum="100" TickFrequency="1"
+                                        Value="{Binding SelectedZone.Filters.Sharpen, Mode=TwoWay}" />
+                                <TextBlock Grid.Column="2" Classes="filter-value"
+                                           Text="{Binding SelectedZone.Filters.Sharpen, StringFormat={}{0:F0}}" />
+                            </Grid>
+
+                            <!-- Виньетка -->
+                            <Grid ColumnDefinitions="100,*,44">
+                                <TextBlock Grid.Column="0" Text="Виньетка" Classes="filter-label" />
+                                <Slider Grid.Column="1" Classes="filter-slider"
+                                        Minimum="0" Maximum="100" TickFrequency="1"
+                                        Value="{Binding SelectedZone.Filters.Vignette, Mode=TwoWay}" />
+                                <TextBlock Grid.Column="2" Classes="filter-value"
+                                           Text="{Binding SelectedZone.Filters.Vignette, StringFormat={}{0:F0}}" />
+                            </Grid>
+
+                            <Rectangle Height="1" Fill="#E0E0E0" Margin="0,2" />
+
+                            <WrapPanel Orientation="Horizontal">
+                                <CheckBox Content="Ч/б" Margin="0,0,10,0"
+                                          IsChecked="{Binding SelectedZone.Filters.Grayscale, Mode=TwoWay}" />
+                                <CheckBox Content="Сепия" Margin="0,0,10,0"
+                                          IsChecked="{Binding SelectedZone.Filters.Sepia, Mode=TwoWay}" />
+                                <CheckBox Content="Инверсия"
+                                          IsChecked="{Binding SelectedZone.Filters.Invert, Mode=TwoWay}" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <TextBlock Grid.Row="5" Text="Выберите зону, чтобы настроить её фильтры"
+                               Margin="12,10" FontSize="12" Foreground="#888"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding !HasSelectedZone}" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Статусная строка -->
+        <Border Grid.Row="2" Padding="10,6" Background="#F2F2F2"
+                BorderBrush="#D0D0D0" BorderThickness="0,1,0,0">
+            <TextBlock Text="{Binding StatusMessage}"
+                       TextTrimming="CharacterEllipsis"
+                       VerticalAlignment="Center" />
+        </Border>
     </Grid>
 </Window>
