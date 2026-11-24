@@ -18,13 +18,66 @@
 - При экспорте повёрнутой зоны содержимое выравнивается по её локальным осям,
   после чего к нему применяются фильтры.
 
-## Запуск
+## Требования
+
+- .NET SDK 10.0 или новее (`net10.0`) — проверка: `dotnet --list-sdks`.
+- 64-битная Linux-система (x64): пакет `OpenCvSharp4.official.runtime.linux-x64`
+  содержит нативные библиотеки только под x86_64.
+- GTK 3 — обязательная зависимость нативной библиотеки OpenCV (фильтры зон).
+- XDG Desktop Portal с бэкендом под ваше окружение: через него Avalonia открывает
+  диалоги «Открыть», «Сохранить» и выбора папки.
+- Fontconfig и хотя бы один системный шрифт (шрифт Inter поставляется с приложением).
+
+Avalonia использует X11-бэкенд, поэтому в Wayland-сессиях приложение работает
+через XWayland (`xorg-xwayland`). Буфер обмена обслуживается самим Avalonia —
+`xclip` или `wl-copy` не требуются.
+
+### Установка зависимостей
+
+EndeavourOS / Arch Linux:
 
 ```bash
+sudo pacman -S --needed dotnet-sdk gtk3 fontconfig freetype2 \
+    ttf-dejavu xdg-desktop-portal
+
+# бэкенд портала выбирается по рабочему окружению:
+sudo pacman -S --needed xdg-desktop-portal-gtk         # GNOME, XFCE, Cinnamon, MATE
+# sudo pacman -S --needed xdg-desktop-portal-kde       # KDE Plasma
+# sudo pacman -S --needed xdg-desktop-portal-hyprland  # Hyprland
+# sudo pacman -S --needed xdg-desktop-portal-wlr       # sway, river и другие wlroots
+```
+
+Debian / Ubuntu:
+
+```bash
+sudo apt install dotnet-sdk-10.0 libgtk-3-0 fontconfig fonts-dejavu-core \
+    xdg-desktop-portal xdg-desktop-portal-gtk
+```
+
+Проверка, что все нативные зависимости разрешаются (после первой сборки вывод
+обеих команд должен быть пустым):
+
+```bash
+ldd bin/Debug/net10.0/runtimes/linux-x64/native/libOpenCvSharpExtern.so | grep "not found"
+ldd bin/Debug/net10.0/runtimes/linux-x64/native/libSkiaSharp.so | grep "not found"
+```
+
+## Сборка и запуск
+
+```bash
+git clone https://github.com/AnceLost/ImageZoneEditor.git
+cd ImageZoneEditor
+
+dotnet restore   # скачивает NuGet-пакеты, включая нативные библиотеки OpenCV
+dotnet build
+
 dotnet run
 # или сразу с изображением
 dotnet run -- /path/to/image.png
 ```
+
+Если `dotnet build` падает с ошибкой `NETSDK1045`, установлен SDK старше 10.0 —
+проверьте `dotnet --list-sdks`.
 
 ## Управление
 
