@@ -72,9 +72,7 @@ public static class ZoneFilterProcessor
         return Image.LoadPixelData<Rgba32>(outPixels, width, height);
     }
 
-    // ---------------------------------------------------------------------
-    // Цвет
-    // ---------------------------------------------------------------------
+    #region Цвет
 
     private static void ApplyColorCorrection(Mat bgr, ZoneFilterSettings settings)
     {
@@ -182,10 +180,9 @@ public static class ZoneFilterProcessor
 
         Cv2.CvtColor(hsv, bgr, ColorConversionCodes.HSV2BGR);
     }
+    #endregion
 
-    // ---------------------------------------------------------------------
-    // Эффекты
-    // ---------------------------------------------------------------------
+    #region Эффекты
 
     private static void ApplyEffects(Mat bgr, ZoneFilterSettings settings)
     {
@@ -278,4 +275,5 @@ public static class ZoneFilterProcessor
                 channel.Dispose();
         }
     }
+    #endregion
 }

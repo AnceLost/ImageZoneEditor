@@ -16,8 +16,8 @@ namespace ImageZoneEditor.Services;
 /// </summary>
 public sealed class ZonePreviewRenderer : IDisposable
 {
-    private const int SourceMaxSide = 1600;
-    private const int PreviewMaxSide = 640;
+    private const int SOURCE_MAX_SIDE = 1600;
+    private const int PREVIEW_MAX_SIDE = 640;
 
     private readonly object _gate = new();
     private Image<Rgba32>? _source;
@@ -27,6 +27,7 @@ public sealed class ZonePreviewRenderer : IDisposable
 
     /// <summary>
     /// Загружает исходное изображение и уменьшает его для быстрых превью.
+    /// Кладет картинку в _source, запускает _prepareTask
     /// Предыдущая копия освобождается.
     /// </summary>
     public Task PrepareAsync(string path, byte[]? fallbackPng, int originalWidth, int originalHeight)
@@ -39,11 +40,11 @@ public sealed class ZonePreviewRenderer : IDisposable
                 ? Image.Load<Rgba32>(fallbackPng)
                 : Image.Load<Rgba32>(path);
 
-            if (image.Width > SourceMaxSide || image.Height > SourceMaxSide)
+            if (image.Width > SOURCE_MAX_SIDE || image.Height > SOURCE_MAX_SIDE)
             {
                 image.Mutate(context => context.Resize(new ResizeOptions
                 {
-                    Size = new Size(SourceMaxSide, SourceMaxSide),
+                    Size = new Size(SOURCE_MAX_SIDE, SOURCE_MAX_SIDE),
                     Mode = ResizeMode.Max
                 }));
             }
@@ -73,6 +74,7 @@ public sealed class ZonePreviewRenderer : IDisposable
     /// </summary>
     public async Task<Bitmap?> RenderAsync(Zone zone, CancellationToken cancellationToken)
     {
+        //Ждем _prepareTask
         await _prepareTask.WaitAsync(cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -99,11 +101,11 @@ public sealed class ZonePreviewRenderer : IDisposable
 
         try
         {
-            if (crop.Width > PreviewMaxSide || crop.Height > PreviewMaxSide)
+            if (crop.Width > PREVIEW_MAX_SIDE || crop.Height > PREVIEW_MAX_SIDE)
             {
                 crop.Mutate(context => context.Resize(new ResizeOptions
                 {
-                    Size = new Size(PreviewMaxSide, PreviewMaxSide),
+                    Size = new Size(PREVIEW_MAX_SIDE, PREVIEW_MAX_SIDE),
                     Mode = ResizeMode.Max
                 }));
             }

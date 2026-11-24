@@ -85,6 +85,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _hasZones;
 
+    // Любое добавление триггерит Обработчик (см. в конструктор)
     public ObservableCollection<Zone> Zones { get; } = new();
 
     /// <summary>Нужно ли вписать изображение в окно после следующей раскладки.</summary>
@@ -160,9 +161,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         HasZones = ZonesCount > 0;
     }
 
-    // ---------------------------------------------------------------------
-    // Превью фильтров
-    // ---------------------------------------------------------------------
+    #region Превью фильтров
 
     private void TrackZone(Zone zone)
     {
@@ -185,8 +184,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         DisposePreviewBitmap(preview);
     }
 
+    
     private void SubscribeFilters(Zone zone)
     {
+        // Убираем старую запись
         if (_filterSubscriptions.Remove(zone, out var previous))
             previous.Settings.PropertyChanged -= previous.Handler;
 
@@ -194,6 +195,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         if (filters is null)
             return;
 
+        // Добавляем новую
         PropertyChangedEventHandler handler = (_, _) => SchedulePreview(zone);
         _filterSubscriptions[zone] = (filters, handler);
         filters.PropertyChanged += handler;
@@ -278,6 +280,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             cancellation.Cancel();
     }
 
+    /// <summary>
+    /// Очищает превью путем Dispose, у zone ставит в null
+    /// </summary>
     private void ClearPreview(Zone zone)
     {
         var preview = zone.Preview;
@@ -296,10 +301,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             StatusMessage = $"Превью фильтров недоступно: {ex.Message}";
         }
     }
-
-    // ---------------------------------------------------------------------
-    // Загрузка изображения
-    // ---------------------------------------------------------------------
+    #endregion
+    #region Загрузка изображения
 
     /// <summary>Синхронная загрузка (используется для аргумента командной строки).</summary>
     private void LoadImage(string path)
@@ -405,10 +408,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         if (!ReferenceEquals(oldValue, newValue))
             oldValue?.Dispose();
     }
+    #endregion
 
-    // ---------------------------------------------------------------------
-    // Масштаб
-    // ---------------------------------------------------------------------
+    #region Масштаб
 
     partial void OnZoomLevelChanged(double value) => UpdateScaledSize();
 
@@ -464,10 +466,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool CanZoomIn() => HasImage;
 
     private bool CanZoomOut() => HasImage;
+    #endregion
 
-    // ---------------------------------------------------------------------
-    // Работа с зонами
-    // ---------------------------------------------------------------------
+    #region Работа с зонами
 
     [RelayCommand(CanExecute = nameof(CanEditZones))]
     private void AddZone()
@@ -548,10 +549,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     private bool CanResetSelectedZoneFilters() => SelectedZone is not null;
+    #endregion
 
-    // ---------------------------------------------------------------------
-    // JSON
-    // ---------------------------------------------------------------------
+    #region JSON
 
     public string? GetZonesJsonPath()
     {
@@ -656,10 +656,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             StatusMessage = $"Не удалось загрузить JSON с зонами: {ex.Message}";
         }
     }
-
-    // ---------------------------------------------------------------------
-    // Экспорт
-    // ---------------------------------------------------------------------
+    #endregion
+    
+    #region Экспорт
 
     /// <summary>Рендерит одну зону в PNG и возвращает байты изображения.</summary>
     public async Task<byte[]?> RenderZonePngAsync(Zone zone)
@@ -833,6 +832,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         var chars = name.Select(c => invalid.Contains(c) ? '_' : c).ToArray();
         return new string(chars).Trim().Trim('.');
     }
+    #endregion
 
     /// <summary>
     /// Освобождает растровое превью после того, как UI успел отпустить его.

@@ -98,8 +98,20 @@ public class Zone : INotifyPropertyChanged
         set => SetField(ref _isSelected, value);
     }
 
+    // Это событие нужно, чтобы UI и MainViewModel знали, что значение изменилось и его стоит перечитать.
+    // 1. Кому надо - тот подписывается, при этом Zone мы не трогаем
+    // 2. Уведомление о устаревшем значении придет само. Не надо смотреть каждый тик не поменялось ли значение
     public event PropertyChangedEventHandler? PropertyChanged;
 
+
+    // [CallerMemberName] нужен для автоматической подстановки имени вызывающего
+    //public double Width
+    //{
+    //  get => _width;
+    //  set => SetField(ref _width, value);   // propertyName НЕ передан
+    //}
+    //Компилятор превращает вызов в:
+    //set => SetField(ref _width, value, "Width");
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value))
